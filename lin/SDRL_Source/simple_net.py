@@ -25,6 +25,7 @@ class Net:
         # controller.add(Conv2D)
         rmsProp = optimizers.RMSprop(lr=0.00025, rho=0.95, epsilon=1e-08, decay=0.0)
         # opt = optimizers.Adam(lr=0.0001, clipnorm = 10)
+
         with tf.device('/{0}:0'.format(device_config.device)):
             self.controller = Sequential()
             self.controller.add(

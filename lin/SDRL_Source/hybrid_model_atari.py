@@ -7,19 +7,6 @@
 from device_config import device
 from hyperparameters_new import *
 
-"""
-import numpy as np
-np.random.seed(SEED)
-import tensorflow as tf
-tf.set_random_seed(SEED)
-import random
-random.seed(SEED)
-session_conf = tf.ConfigProto(intra_op_parallelism_threads=1, inter_op_parallelism_threads=1)
-session_conf.gpu_options.allow_growth = True
-from keras import backend as K
-sess = tf.Session(graph=tf.get_default_graph(), config=session_conf)
-K.set_session(sess)
-"""
 from keras.models import Sequential, Model, load_model, model_from_config
 from keras.layers import Dense, Conv2D, Flatten, Input, concatenate, Lambda
 from keras import optimizers
