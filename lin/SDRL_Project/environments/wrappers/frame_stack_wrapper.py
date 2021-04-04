@@ -108,8 +108,5 @@ class FrameStack(Wrapper, BaseWrapper):
         [self.frames.append(observation) for _ in range(self.num_stack)]
         return self._get_observation()
 
-    def set_last_rgb_obs(self, rgb_obs):
-        self.env.set_last_rgb_obs(rgb_obs)
-
     def get_last_rgb_obs(self):
         return self.env.get_last_rgb_obs()

@@ -86,8 +86,6 @@ class DopamineAtariPreprocessor(gym.Wrapper, BaseWrapper):
         Returns:
             observation: numpy array, the initial observation emitted by the environment.
         """
-        rgb_obs = self.environment.reset()
-        self.set_last_rgb_obs(np.copy(np.array(rgb_obs)))   # make a copy of latest rgb obs
         self.lives = self.environment.ale.lives()
         self._fetch_grayscale_observation(self.screen_buffer[0])
         self.screen_buffer[1].fill(0)
@@ -120,7 +118,7 @@ class DopamineAtariPreprocessor(gym.Wrapper, BaseWrapper):
         for time_step in range(frame_skip):
             # We bypass the Gym observation altogether and directly fetch the
             # grayscale image from the ALE. This is a little faster.
-            rgb_obs, reward, game_over, info = self.environment.step(action)
+            _, reward, game_over, info = self.environment.step(action)
             accumulated_reward += reward
 
             if self.terminal_on_life_loss:
@@ -139,7 +137,6 @@ class DopamineAtariPreprocessor(gym.Wrapper, BaseWrapper):
 
         # Pool the last two observations.
         observation = self._pool_and_resize()
-        self.set_last_rgb_obs(np.copy(np.array(rgb_obs)))   # make a copy of latest rgb obs
         self.game_over = game_over
         return observation, accumulated_reward, is_terminal, info
 
@@ -179,8 +176,5 @@ class DopamineAtariPreprocessor(gym.Wrapper, BaseWrapper):
             img = img / 255.0
         return img
 
-    def set_last_rgb_obs(self, rgb_obs):
-        self.last_rgb_obs = rgb_obs
-
     def get_last_rgb_obs(self):
-        return self.last_rgb_obs
+        return self.environment.ale.get_screen_rgb()

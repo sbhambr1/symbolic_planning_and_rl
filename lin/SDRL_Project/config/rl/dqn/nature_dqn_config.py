@@ -46,7 +46,7 @@ class Nature_DQN_Config(Agent_Config):
         policy_hyper_params.epsilon_strategy = 'exponential-episode'
         policy_hyper_params.max_epsilon = 1.0
         policy_hyper_params.min_epsilon = 0.01  # open-ai baselines: 0.01
-        policy_hyper_params.epsilon_decay = 0.9 # default: 0.9995
+        policy_hyper_params.epsilon_decay = 0.9     # default: 0.9995
 
         #################################
         ## Network Architecture Config ##
