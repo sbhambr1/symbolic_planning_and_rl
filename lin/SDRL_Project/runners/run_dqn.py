@@ -1,6 +1,7 @@
 import os
 import sys
 
+from config.planning_rl.sdrl.sdrl_config import SDRL_Config
 from config.rl.dqn.efficient_dqn_config import Efficient_DQN_Config
 from learning_agents.rl.value_based_agent.dqn.dqn_agent import DQN_Agent
 from learning_agents.rl.value_based_agent.trainer_value_based_agent import Train_Value_Based_Agent
@@ -11,7 +12,7 @@ model_name = 'dqn'
 
 
 def run():
-    expr_config = Efficient_DQN_Config()
+    expr_config = SDRL_Config()
     expr_config.get_agent_config()
 
     sys_args = expr_config.agent_config.sys_args
@@ -19,6 +20,7 @@ def run():
     policy_network_cfg = expr_config.agent_config.policy_network_cfg
     policy_optim_cfg = expr_config.agent_config.policy_optim_cfg
 
+    # TODO: change this line
     files_to_save = [os.path.abspath(sys.modules[DQN_Agent.__module__].__file__)]
     env, expr_manager = init_experiment(env_name=sys_args.env,
                                         model_name=model_name,
