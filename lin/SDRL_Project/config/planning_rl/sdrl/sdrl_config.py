@@ -8,9 +8,14 @@ class SDRL_Config(DQN_Config):
     def get_agent_config(self):
         DQN_Config.get_agent_config(self)
 
-        ############################
-        ## Hyper Parameter Config ##
-        ############################
+        ###################################
+        ## Hyper Parameter Config: SDRL  ##
+        ###################################
+
+
+        #########################################
+        ## Hyper Parameter Config: Q-Learning  ##
+        #########################################
         self.agent_config.policy_hyper_params.gradient_clip = 10.0
         # N-Step Buffer
         self.agent_config.policy_hyper_params.n_step = 5

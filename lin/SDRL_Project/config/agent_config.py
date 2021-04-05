@@ -39,6 +39,8 @@ class Agent_Config:
         # env setting
         parser.add_argument("--max-step", type=int, default=500000,
                             help="maximum environment step (default: 500k)")
+        parser.add_argument("--max-episode", type=int, default=500000,
+                            help="maximum number of episodes (default: 500k)")
         parser.add_argument("--max-traj-len", type=int, default=10000,
                             help="maximum step in a single trajectory (default: 10k)")
         parser.add_argument("--frame-size", type=int, default=84,

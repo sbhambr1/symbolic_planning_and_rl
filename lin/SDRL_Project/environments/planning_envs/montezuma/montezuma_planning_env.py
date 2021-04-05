@@ -1,8 +1,12 @@
-import gym
+import math
+import os
+import random
+
 import numpy as np
 import cv2
 
 from environments.make_atari_env import make_atari_env
+from learning_agents.planning_rl.planners import bc_planner
 
 
 class Montezuma_Planning_Env:
@@ -13,14 +17,32 @@ class Montezuma_Planning_Env:
 
         self.screen_width = agent_config.sys_args.frame_size
         self.screen_height = agent_config.sys_args.frame_size
+        self.observation_space = self.env.observation_space
+        self.action_space = self.env.action_space
+        # symbolic representation
+        # 6 locations, doubled with key picked, in total, 8 states, 1 good terminal (-2), 1 bad terminate (-3)
+        self.n_symbolic_state = 14
+        # move to right ladder, move to key, move to left ladder, move to door, move to left of devil, move to initial
+        self.n_symbolic_action = 6
 
         self.mode = "train"
         self.life_lost = False
         self.init_screen = self.get_screen_gray()
 
+        # files for planning
+        self.env_base_dir = os.path.dirname(os.path.abspath(__file__))
+        self.constraint_file = os.path.join(self.env_base_dir, 'constraints.lp')
+        self.goal_file = os.path.join(self.env_base_dir, 'goal.lp')
+        self.domain_file = os.path.join(self.env_base_dir, 'montezuma.lp')
+        self.q_file = os.path.join(self.env_base_dir, 'q.lp')
+        self.init_file = os.path.join(self.env_base_dir, 'initial.lp')
+
         """
-        @Lin: here they use hard-coded sub-goals
+        Sub-goal definitions
         """
+        self.goal_meaning = ['lower right ladder', 'jump to the left of devil', 'key', 'lower left ladder',
+                             'lower right ladder', 'central high platform', 'right door']
+        self.n_subgoal = len(self.goal_meaning)
         self.goalSet = []
         # goal 0
         self.goalSet.append([[69, 68], [73, 71]])  # Lower Right Ladder. This is the box for detecting first subgoal
@@ -154,9 +176,9 @@ class Montezuma_Planning_Env:
         dis = np.sqrt(
             (goalCenter[0] - agentX) * (goalCenter[0] - agentX) + (goalCenter[1] - agentY) * (goalCenter[1] - agentY))
         disLast = np.sqrt((lastGoalCenter[0] - agentX) * (lastGoalCenter[0] - agentX) + (lastGoalCenter[1] - agentY) * (
-                    lastGoalCenter[1] - agentY))
+                lastGoalCenter[1] - agentY))
         disGoals = np.sqrt((goalCenter[0] - lastGoalCenter[0]) * (goalCenter[0] - lastGoalCenter[0]) + (
-                    goalCenter[1] - lastGoalCenter[1]) * (goalCenter[1] - lastGoalCenter[1]))
+                goalCenter[1] - lastGoalCenter[1]) * (goalCenter[1] - lastGoalCenter[1]))
         return 0.001 * (disLast - dis) / disGoals
 
     def get_stacked_state(self):
@@ -248,3 +270,197 @@ class Montezuma_Planning_Env:
             return False
         return True
 
+    def generate_plan(self):
+        return bc_planner.compute_plan(clingo_path='clingo', initial=self.init_file, goal=self.goal_file,
+                                       planning=self.domain_file, q_value=self.q_file, constraint=self.constraint_file,
+                                       log_dir=self.env_base_dir, verbose=True)
+
+    def generate_rovalue_from_table(self, ro_table_lp, ro_table):
+        """
+        Output new q value files for more accurate planning
+        """
+        q_file = open(self.q_file, "w")
+        for (state, action) in ro_table_lp:
+            logical_state = self.state_remapping(state)
+            logical_action = self.action_remapping(action)
+            q_rule = "ro(" + logical_state + "," + logical_action + "," + str(
+                int(math.floor(ro_table[state, action]))) + ").\n"
+            q_file.write(q_rule)
+        q_file.close()
+
+    def generate_goal_file(self, plan_quality):
+        """
+        Output new goal file for planning
+        """
+        goal_file = open(self.goal_file, "w")
+        goal_file.write("#program check(k).\n")
+        goal_file.write(":- query(k), cost(C,k), C <= " + str(plan_quality) + ".\n")
+        goal_file.write(":- query(k), cost(0,k).")
+        goal_file.close()
+
+    def update_constraint(self, state_id, action_id):
+        state = self.state_remapping(state_id, include_timestamp=True)
+        action = self.action_remapping(action_id, include_timestamp=True)
+        constraint = ":-" + state + "," + action + ".\n"
+        f = open(self.constraint_file, "a")
+        f.write("#program step(k).\n")
+        f.write(constraint)
+        f.close()
+
+    def cleanup_constraint(self):
+        open(self.constraint_file, 'w').close()
+
+    @staticmethod
+    def select_subgoal_from_plan(plan_trace, i):
+        current_unit = plan_trace[i]
+        current_fluent = current_unit[2]
+        next_unit = plan_trace[i + 1]
+        next_fluent = next_unit[2]
+
+        # Make sure the goal number here maps correctly to bounding boxes in environment_atari.py
+        if ("at(plat1)" in current_fluent) and ("at(lower_right_ladder)" in next_fluent) and (
+                "picked(key)" not in next_fluent):
+            return 0
+        if ("at(lower_right_ladder)" in current_fluent) and ("at(devilleft)" in next_fluent):
+            return 1
+        if ("at(devilleft)" in current_fluent) and ("at(key)" in next_fluent):
+            return 2
+        if ("at(key)" in current_fluent) and ("at(lower_left_ladder)" in next_fluent):
+            return 3
+        if ("at(lower_left_ladder)" in current_fluent) and ("at(lower_right_ladder)" in next_fluent):
+            return 4
+        if ("at(lower_right_ladder)" in current_fluent) and ("at(plat1)" in next_fluent):
+            return 5
+        if ("at(plat1)" in current_fluent) and ("at(right_door)" in next_fluent):
+            return 6
+        return -1
+
+    def get_state_action_from_plan(self, plan_trace, i):
+        unit = plan_trace[i]
+        action = unit[1]
+        fluent = unit[2]
+        return self.state_mapping(fluent), self.action_mapping(action)
+
+    @staticmethod
+    def action_mapping(action):
+        if 'move(lower_right_ladder)' in action:
+            return 0
+        if 'move(lower_left_ladder)' in action:
+            return 1
+        if 'move(key)' in action:
+            return 2
+        if 'move(right_door)' in action:
+            return 3
+        if 'move(devilleft)' in action:
+            return 4
+        if 'move(plat1)' in action:
+            return 5
+
+    @staticmethod
+    def state_mapping(fluent):
+        """
+        Symbolic state to goal mapping
+        """
+        if ("at(lower_right_ladder)" in fluent) and ("picked(key)" not in fluent):
+            return 0
+        if ("at(key)" in fluent) and ("picked(key)" in fluent):
+            return 1
+        if ("at(lower_right_ladder)" in fluent) and ("picked(key)" in fluent):
+            return 2
+        if ("at(right_door)" in fluent) and ("picked(key)" in fluent):
+            return 3
+        if ("at(right_door)" in fluent) and ("picked(key)" not in fluent):
+            return 4
+        if ("at(devilleft)" in fluent):
+            return 5
+        if ("at(plat1)" in fluent) and ("picked(key)" in fluent):
+            return 6
+        if ("at(lower_left_ladder)" in fluent) and ("picked(key)" in fluent):
+            return 7
+        if ("at(lower_left_ladder)" in fluent) and ("picked(key)" not in fluent):
+            return 8
+        return -1
+
+    @staticmethod
+    def action_remapping(action_id, include_timestamp=False):
+        timestamp_str = ',k)' if include_timestamp else ')'
+        if action_id == 0:
+            return 'move(lower_right_ladder' + timestamp_str
+        if action_id == 1:
+            return 'move(lower_left_ladder' + timestamp_str
+        if action_id == 2:
+            return 'move(key' + timestamp_str
+        if action_id == 3:
+            return 'move(right_door' + timestamp_str
+        if action_id == 4:
+            return 'move(devilleft' + timestamp_str
+        if action_id == 5:
+            return 'move(plat1' + timestamp_str
+        return ''
+
+    @staticmethod
+    def state_remapping(fluent_id, include_timestamp=False):
+        timestamp_str = ',k)' if include_timestamp else ')'
+        if fluent_id == -1:
+            return 'at(plat1' + timestamp_str
+        if fluent_id == 0:
+            return 'at(lower_right_ladder' + timestamp_str
+        elif fluent_id == 1:
+            return '(at(key),picked(key)' + timestamp_str
+        elif fluent_id == 2:
+            return '(at(lower_right_ladder),picked(key)' + timestamp_str
+        elif fluent_id == 3:
+            return '(at(right_door),picked(key)' + timestamp_str
+        elif fluent_id == 4:
+            return 'at(right_door' + timestamp_str
+        elif fluent_id == 5:
+            return 'at(devilleft' + timestamp_str
+        elif fluent_id == 6:
+            return '(at(plat1),picked(key)' + timestamp_str
+        elif fluent_id == 7:
+            return '(at(lower_left_ladder),picked(key)' + timestamp_str
+        elif fluent_id == 8:
+            return 'at(lower_left_ladder' + timestamp_str
+        return ''
+
+    @staticmethod
+    def obtain_key(previous_state, next_state):
+        """
+        Return true if current sub-goal is to pick up the key
+        """
+        if ("picked(key)" not in previous_state) and ("picked(key)" in next_state):
+            return True
+        else:
+            return False
+
+    @staticmethod
+    def open_door(previous_state, next_state):
+        """
+        Return true if current sub-goal is to open the door
+        To open the door, the agent must have picked the key and go to the right door
+        """
+        if ("picked(key)" in previous_state) and ("at(right_door)" not in previous_state) and (
+                "picked(key)" in next_state) and (
+                "at(right_door)" in next_state):
+            return True
+        else:
+            return False
+
+    @staticmethod
+    def calculate_plan_quality(ro_table, state_action):
+        plan_quality = 0
+        for (state, action) in state_action:
+            plan_quality += int(math.floor(ro_table[state, action]))
+        return plan_quality
+
+    @staticmethod
+    def str2bool(v):
+        return v.lower() in ("yes", "true", "t", "1")
+
+    @staticmethod
+    def throw_dice(threshold):
+        rand = random.uniform(0, 1)
+        if rand < threshold:
+            return True
+        else:
+            return False

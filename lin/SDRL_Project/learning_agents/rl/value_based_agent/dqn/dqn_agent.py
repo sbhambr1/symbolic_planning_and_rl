@@ -205,7 +205,7 @@ class DQN_Agent(Value_Based_Agent):
         self.dqn_optim.load_state_dict(params["dqn_optim_state_dict"])
         print("[INFO] loaded the model and optimizer from", path)
 
-    def save_params(self, n_step):
+    def save_params(self, n_step, prefix='model'):
         """Save model and optimizer parameters."""
         params = {
             "dqn_state_dict": self.dqn.state_dict(),
@@ -214,7 +214,7 @@ class DQN_Agent(Value_Based_Agent):
         }
 
         if self.logger is not None:
-            self.logger.save_models(params, prefix='model', postfix=str(n_step), is_snapshot=True)
+            self.logger.save_models(params, prefix=prefix, postfix=str(n_step), is_snapshot=True)
 
     def write_log(self, log_value):
         """Write log about loss and score"""

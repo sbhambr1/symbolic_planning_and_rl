@@ -27,5 +27,6 @@ def run():
                                         experiment_log_dir=experiment_log_dir,
                                         use_wandb=sys_args.use_wandb, virtual_display=sys_args.virtual_display)
 
+
 if __name__ == '__main__':
     run()
