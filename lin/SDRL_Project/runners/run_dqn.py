@@ -20,7 +20,6 @@ def run():
     policy_network_cfg = expr_config.agent_config.policy_network_cfg
     policy_optim_cfg = expr_config.agent_config.policy_optim_cfg
 
-    # TODO: change this line
     files_to_save = [os.path.abspath(sys.modules[DQN_Agent.__module__].__file__)]
     env, expr_manager = init_experiment(env_name=sys_args.env,
                                         model_name=model_name,

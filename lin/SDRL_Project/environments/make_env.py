@@ -13,12 +13,13 @@ def make_env(env_name, agent_config):
     if env_name == 'taxi':
         env = get_robot_taxi_env(agent_config)
     elif len(env_name) > 5 and 'plan-' == env_name[:5]:
-        env_name = env_name[:5]
+        env_name = env_name[5:]
         # check if the env name is an Atari game
         for atari_game in atari_game_list:
             if env_name.lower() in atari_game.lower():
                 env_name = get_atari_name(env_name)
-        make_planning_env(env_name, agent_config)
+                break
+        env = make_planning_env(env_name, agent_config)
     else:
         for atari_game in atari_game_list:
             if env_name.lower() in atari_game.lower():

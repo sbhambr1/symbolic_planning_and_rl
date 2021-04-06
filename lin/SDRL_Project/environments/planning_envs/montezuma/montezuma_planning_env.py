@@ -5,14 +5,16 @@ import random
 import numpy as np
 import cv2
 
-from environments.make_atari_env import make_atari_env
 from learning_agents.planning_rl.planners import bc_planner
 
 
 class Montezuma_Planning_Env:
     def __init__(self, env_name, agent_config):
         self.agent_config = agent_config
-        self.env = make_atari_env(env_name=env_name, agent_config=agent_config)
+        from environments.make_env import make_env
+        self.env = make_env(env_name='MontezumaRevenge', agent_config=agent_config)
+        self.spec = self.env.spec
+        self.name = self.spec.id if self.spec is not None else 'MontezumaRevenge'
         self.ale = self.env.ale
 
         self.screen_width = agent_config.sys_args.frame_size
@@ -31,7 +33,7 @@ class Montezuma_Planning_Env:
 
         # files for planning
         self.env_base_dir = os.path.dirname(os.path.abspath(__file__))
-        self.constraint_file = os.path.join(self.env_base_dir, 'constraints.lp')
+        self.constraint_file = os.path.join(self.env_base_dir, 'constraint.lp')
         self.goal_file = os.path.join(self.env_base_dir, 'goal.lp')
         self.domain_file = os.path.join(self.env_base_dir, 'montezuma.lp')
         self.q_file = os.path.join(self.env_base_dir, 'q.lp')
@@ -84,7 +86,7 @@ class Montezuma_Planning_Env:
     def restart(self):
         self.env.reset()
         self.life_lost = False
-        self.reached_goal = [0, 0, 0, 0, 0, 0, 0]
+        self.reset_goal_reach()
         for i in range(19):
             self.act(0)  # wait for initialization
         self.stacked_state = self._get_init_stacked_state()
@@ -93,7 +95,7 @@ class Montezuma_Planning_Env:
 
     def begin_next_life(self):
         self.life_lost = False
-        self.reached_goal = [0, 0, 0, 0, 0, 0, 0]
+        self.reset_goal_reach()
         for i in range(19):
             self.act(0)  # wait for initialization
         self.stacked_state = self._get_init_stacked_state()
@@ -105,7 +107,7 @@ class Montezuma_Planning_Env:
         next_state, reward, done, info = self.env.step(action)
         self.life_lost = (not lives == self.ale.lives())
         self.stacked_state = next_state
-        return reward
+        return next_state, reward, done, info
 
     def get_screen_gray(self):
         screen = self.ale.getScreenGrayscale()
@@ -166,23 +168,17 @@ class Montezuma_Planning_Env:
         self.devilLastY = mean_y
         return mean_x, mean_y
 
-    def distance_reward(self, last_goal, goal):
-        if (last_goal == -1):
-            lastGoalCenter = self.agentOriginLoc
-        else:
-            lastGoalCenter = self.goalCenterLoc[last_goal]
-        goalCenter = self.goalCenterLoc[goal]
-        agentX, agentY = self.get_agent_loc()
-        dis = np.sqrt(
-            (goalCenter[0] - agentX) * (goalCenter[0] - agentX) + (goalCenter[1] - agentY) * (goalCenter[1] - agentY))
-        disLast = np.sqrt((lastGoalCenter[0] - agentX) * (lastGoalCenter[0] - agentX) + (lastGoalCenter[1] - agentY) * (
-                lastGoalCenter[1] - agentY))
-        disGoals = np.sqrt((goalCenter[0] - lastGoalCenter[0]) * (goalCenter[0] - lastGoalCenter[0]) + (
-                goalCenter[1] - lastGoalCenter[1]) * (goalCenter[1] - lastGoalCenter[1]))
-        return 0.001 * (disLast - dis) / disGoals
+    def get_intrinsic_reward(self, goal):
+        reward = 0
+        sub_goal_done = self.goal_reached(goal)
+        if sub_goal_done:
+            reward = 1
+        if self.life_lost:
+            reward = -1
+        return reward, sub_goal_done
 
     def get_stacked_state(self):
-        return self.stacked_state
+        return np.copy(self.stacked_state)
 
     def is_terminal(self):
         if self.mode == 'train':

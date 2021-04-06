@@ -82,6 +82,7 @@ def compute_plan(clingo_path, initial, goal, planning, q_value, constraint, log_
     tmp_result_path = os.path.join(log_dir, 'result.tmp')
     files = initial + " " + planning + " " + q_value + " " + constraint + " " + goal + " " + show
 
+    print('[INFO] Executing clingo command: ', clingo_path + " " + files + " --time-limit=180 > " + tmp_result_path)
     clingo_process = subprocess.Popen(clingo_path + " " + files + " --time-limit=180 > " + tmp_result_path,
                                       shell=True)
     p = psutil.Process(clingo_process.pid)

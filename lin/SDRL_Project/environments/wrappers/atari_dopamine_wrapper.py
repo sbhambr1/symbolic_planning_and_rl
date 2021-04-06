@@ -86,6 +86,7 @@ class DopamineAtariPreprocessor(gym.Wrapper, BaseWrapper):
         Returns:
             observation: numpy array, the initial observation emitted by the environment.
         """
+        self.environment.reset()
         self.lives = self.environment.ale.lives()
         self._fetch_grayscale_observation(self.screen_buffer[0])
         self.screen_buffer[1].fill(0)
