@@ -31,7 +31,7 @@ class SDRL_Config(DQN_Config):
         ###################################
         ## Hyper Parameter Config: SDRL  ##
         ###################################
-        self.agent_config.policy_hyper_params.max_goal_step = 500
+        self.agent_config.policy_hyper_params.max_goal_step = 1000
 
         #########################################
         ## Hyper Parameter Config: Q-Learning  ##
