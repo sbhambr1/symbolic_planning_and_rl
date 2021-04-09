@@ -66,7 +66,7 @@ class SDRL_Agent(Value_Based_Agent):
                 t_begin = time.time()
 
                 while not self.env.is_terminal() and not subgoal_done and \
-                        self.episode_step < self.args.max_traj_len:
+                        subgoal_agent.episode_step < self.hyper_params.max_goal_step:
                     # interact with the environment
                     state = self.env.get_stacked_state()
                     action = subgoal_agent.select_action(state)
