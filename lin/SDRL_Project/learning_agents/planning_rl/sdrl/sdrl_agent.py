@@ -162,7 +162,7 @@ class SDRL_Agent(Value_Based_Agent):
 
         print("[INFO] %s\n" % (str(log_info),))
         if self.logger is not None:
-            self.logger.log_wandb(log_info, step=self.total_step)
+            self.logger.log_wandb(log_info, step=subgoal_agent.total_step)
 
     def write_log(self, log_value):
         """Write log about loss and score"""
