@@ -10,6 +10,7 @@ from learning_agents.rl.value_based_agent.value_based_agent import Value_Based_A
 from learning_agents.utils.tensor_utils import get_device
 
 device = get_device()
+DEBUG_INFO = False
 
 
 class SDRL_Agent(Value_Based_Agent):
@@ -41,7 +42,8 @@ class SDRL_Agent(Value_Based_Agent):
         self.subgoal_avg_score_window = [deque(maxlen=self.args.avg_score_window) for _ in range(self.n_subgoal)]
 
         while self.total_step < self.args.max_step and self.i_episode < self.args.max_episode:
-            print('[INFO] Starting episode ', self.i_episode)
+            if DEBUG_INFO:
+                print('[INFO] Starting episode ', self.i_episode)
             self.env.restart()
 
             self.episode_step = 0
@@ -49,9 +51,10 @@ class SDRL_Agent(Value_Based_Agent):
 
             while not self.env.is_terminal() and self.episode_step < self.args.max_traj_len:
                 sub_goal = self.env.get_current_subgoal()
-                print('[INFO] Episode: {0}, episode step: {1}, total step: {4}, current subgoal {2}: {3}.'.format(
-                    self.i_episode, self.episode_step, sub_goal,
-                    self.env.goal_meaning[sub_goal], self.total_step))
+                if DEBUG_INFO:
+                    print('[INFO] Episode: {0}, episode step: {1}, total step: {4}, current subgoal {2}: {3}.'.format(
+                        self.i_episode, self.episode_step, sub_goal,
+                        self.env.goal_meaning[sub_goal], self.total_step))
 
                 # recording training-related information
                 subgoal_losses = list()
@@ -70,7 +73,7 @@ class SDRL_Agent(Value_Based_Agent):
                     next_state, external_reward, _, info = self.env.act(action)
                     score += external_reward
 
-                    subgoal_done, intrinsic_reward = self.env.get_intrinsic_reward(sub_goal)
+                    intrinsic_reward, subgoal_done = self.env.get_intrinsic_reward(sub_goal)
                     subgoal_score += intrinsic_reward
 
                     # save the new transition
@@ -109,8 +112,8 @@ class SDRL_Agent(Value_Based_Agent):
                     avg_loss = np.vstack(subgoal_losses).mean(axis=0)
                     log_value = (
                         avg_loss, subgoal_score, avg_time_cost, np.mean(self.subgoal_avg_score_window[sub_goal]))
-                    self.write_subgoal_log(log_value, sub_goal)
-                log_value = (sub_goal,)
+                    self.write_subgoal_log(log_value, sub_goal, subgoal_agent)
+                log_value = (sub_goal, score, avg_time_cost)
                 self.write_log(log_value)
 
     def load_params(self, path):
@@ -128,15 +131,15 @@ class SDRL_Agent(Value_Based_Agent):
         for i in range(self.n_subgoal):
             self.subgoal_policies[i].save_params(n_step, prefix='policy_subgoal_{0}'.format(i))
 
-    def write_subgoal_log(self, log_value, sub_goal_idx):
+    def write_subgoal_log(self, log_value, sub_goal, subgoal_agent):
         """Write log about loss and score"""
         loss, score, avg_time_cost, avg_score_window = log_value
         subgoal_log_info = {
-            "episode": self.i_episode,
+            "episode": subgoal_agent.i_episode,
             "score": score,
-            "episode step": self.episode_step,
-            "total step": self.total_step,
-            "epsilon": self.explore_strategy.get_epsilon(self.total_step, self.i_episode),
+            "episode step": subgoal_agent.episode_step,
+            "total step": subgoal_agent.total_step,
+            "epsilon": subgoal_agent.explore_strategy.get_epsilon(subgoal_agent.total_step, subgoal_agent.i_episode),
             "dqn loss": loss[0],
             "avg q values": loss[1],
             "time per each step": avg_time_cost,
@@ -144,7 +147,7 @@ class SDRL_Agent(Value_Based_Agent):
         }
         log_info = {}
         for key in subgoal_log_info:
-            log_info["subgoal-" + str(sub_goal_idx) + "-" + str(key)] = subgoal_log_info[key]
+            log_info["subgoal-" + str(sub_goal) + "-" + str(key)] = subgoal_log_info[key]
 
         print("[INFO] %s\n" % (str(log_info),))
         if self.logger is not None:
@@ -152,9 +155,13 @@ class SDRL_Agent(Value_Based_Agent):
 
     def write_log(self, log_value):
         """Write log about loss and score"""
-        subgoal = log_value
+        subgoal, score, avg_time_cost = log_value
         log_info = {
+            "episode": self.i_episode,
+            "score": score,
             "subgoal": subgoal,
+            "total step": self.total_step,
+            "episode step": self.episode_step,
         }
 
         print("[INFO] %s\n" % (str(log_info),))

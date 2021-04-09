@@ -17,8 +17,6 @@ class SDRL_Config(DQN_Config):
         ## Hyper Parameter Config: Q-Learning  ##
         #########################################
         self.agent_config.policy_hyper_params.gradient_clip = 10.0
-        # N-Step Buffer
-        self.agent_config.policy_hyper_params.n_step = 5
         # Double Q-Learning
         self.agent_config.policy_hyper_params.use_double_q_update = False
         # Prioritized Replay Buffer
@@ -29,6 +27,16 @@ class SDRL_Config(DQN_Config):
         self.agent_config.policy_hyper_params.per_beta = 0.4
         self.agent_config.policy_hyper_params.per_eps = 1e-6
 
+        # N-Step Buffer
+        self.agent_config.policy_hyper_params.terminate_life_loss = False
+        self.agent_config.policy_hyper_params.n_step = 5
+        # Epsilon Exploration
+        self.agent_config.policy_hyper_params.explore_strategy = 'epsilon-greedy'
+        self.agent_config.policy_hyper_params.epsilon_strategy = 'linear-step'
+        self.agent_config.policy_hyper_params.use_noisy_net = False
+        self.agent_config.policy_hyper_params.max_epsilon = 1.0
+        self.agent_config.policy_hyper_params.min_epsilon = 0.01  # open-ai baselines: 0.01
+        self.agent_config.policy_hyper_params.epsilon_decay = 2500
         ########################
         ### Optimizer Config ###
         ########################
