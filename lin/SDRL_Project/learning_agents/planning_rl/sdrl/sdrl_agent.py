@@ -49,11 +49,11 @@ class SDRL_Agent(Value_Based_Agent):
             if DEBUG_INFO:
                 print('[INFO] Starting episode ', self.i_episode)
             self.env.restart()
-
+            subgoal_done = True
             self.episode_step = 0
             score = 0
 
-            while not self.env.is_terminal() and self.episode_step < self.args.max_traj_len:
+            while subgoal_done and not self.env.is_terminal() and self.episode_step < self.args.max_traj_len:
                 sub_goal = self.env.get_current_subgoal()
                 if DEBUG_INFO:
                     print('[INFO] Episode: {0}, episode step: {1}, total step: {4}, current subgoal {2}: {3}.'.format(
@@ -107,6 +107,8 @@ class SDRL_Agent(Value_Based_Agent):
                                 loss = subgoal_agent.update_model()
                                 subgoal_losses.append(loss)  # for logging
 
+                if subgoal_score > 0:
+                    subgoal_done = True
                 self.i_episode += 1
                 # update subgoal agent info
                 subgoal_agent.i_episode += 1
