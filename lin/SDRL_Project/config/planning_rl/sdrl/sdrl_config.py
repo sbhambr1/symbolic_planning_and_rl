@@ -32,11 +32,11 @@ class SDRL_Config(DQN_Config):
         self.agent_config.policy_hyper_params.n_step = 5
         # Epsilon Exploration
         self.agent_config.policy_hyper_params.explore_strategy = 'epsilon-greedy'
-        self.agent_config.policy_hyper_params.epsilon_strategy = 'linear-step'
+        self.agent_config.policy_hyper_params.epsilon_strategy = 'exponential-episode'
         self.agent_config.policy_hyper_params.use_noisy_net = False
         self.agent_config.policy_hyper_params.max_epsilon = 1.0
         self.agent_config.policy_hyper_params.min_epsilon = 0.01  # open-ai baselines: 0.01
-        self.agent_config.policy_hyper_params.epsilon_decay = 2500
+        self.agent_config.policy_hyper_params.epsilon_decay = 0.95  # default: 0.9995
         ########################
         ### Optimizer Config ###
         ########################
