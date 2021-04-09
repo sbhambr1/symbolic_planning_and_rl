@@ -74,9 +74,9 @@ class SDRL_Agent(Value_Based_Agent):
                     score += external_reward
 
                     intrinsic_reward, subgoal_done = self.env.get_intrinsic_reward(sub_goal)
-                    subgoal_score += intrinsic_reward
                     if subgoal_agent.episode_step + 1 >= self.hyper_params.max_goal_step:
                         intrinsic_reward -= 1
+                    subgoal_score += intrinsic_reward
 
                     # save the new transition
                     transition = (state, action, intrinsic_reward, next_state, subgoal_done, info)
