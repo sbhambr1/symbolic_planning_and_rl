@@ -111,6 +111,11 @@ class SDRL_Agent(Value_Based_Agent):
 
                 if subgoal_score > 0:
                     complete_subgoal = True
+                else:
+                    print(
+                        '[INFO] Current episode terminates due to failing to complete assigned subgoal {0}, {1}'.format(
+                            sub_goal, self.env.goal_meaning[sub_goal]))
+
                 self.i_episode += 1
                 # update subgoal agent info
                 subgoal_agent.i_episode += 1
@@ -166,7 +171,7 @@ class SDRL_Agent(Value_Based_Agent):
 
         print("[INFO] %s\n" % (str(log_info),))
         if self.logger is not None:
-            self.logger.log_wandb(log_info, step=subgoal_agent.total_step)
+            self.logger.log_wandb(log_info, step=self.total_step)
 
     def write_log(self, log_value):
         """Write log about loss and score"""
