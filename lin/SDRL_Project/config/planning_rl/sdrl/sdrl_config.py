@@ -1,9 +1,29 @@
+import argparse
+
 from config.rl.dqn.default_dqn_config import DQN_Config
 
 
 class SDRL_Config(DQN_Config):
     def __init__(self):
         DQN_Config.__init__(self)
+
+    def parse_sys_args(self):
+        """
+        Read command line arguments, save into agent config
+        :return: ArgumentParser
+        """
+        super(SDRL_Config, self).parse_sys_args()
+        parser = argparse.ArgumentParser(description="Parsing command line arguments")
+
+        parser.add_argument("--model-dir", type=str, default=None,
+                            help="The directory under which sub-goal files is located.")
+
+        # save system args in agent config
+        args, unknown = parser.parse_known_args()
+        for arg in vars(args):
+            self.agent_config.sys_args[arg] = getattr(args, arg)
+
+        return parser
 
     def get_agent_config(self):
         DQN_Config.get_agent_config(self)

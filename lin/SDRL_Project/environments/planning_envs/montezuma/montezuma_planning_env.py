@@ -110,6 +110,9 @@ class Montezuma_Planning_Env:
         resized = cv2.resize(screen, (self.screen_width, self.screen_height))
         return resized
 
+    def get_last_rgb_obs(self):
+        return self.ale.getScreenRGB()
+
     def get_agent_loc(self, img=None):
         if img is None:
             img = self.get_screen_rgb()

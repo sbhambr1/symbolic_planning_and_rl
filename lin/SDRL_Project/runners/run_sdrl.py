@@ -5,7 +5,7 @@ from config.planning_rl.sdrl.sdrl_config import SDRL_Config
 from learning_agents.planning_rl.sdrl.sdrl_agent import SDRL_Agent
 from utils.experiment_manager import init_experiment
 
-experiment_log_dir = 'results/'
+experiment_log_dir = 'tmp/'
 model_name = 'sdrl'
 
 

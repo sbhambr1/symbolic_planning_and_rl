@@ -23,7 +23,11 @@ class SDRL_Agent(Value_Based_Agent):
         self.subgoal_avg_score_window = [deque(maxlen=self.args.avg_score_window) for _ in range(self.n_subgoal)]
 
         self.subgoal_policies = []
+        self.skip_subgoal_training = [False for _ in range(self.n_subgoal)]
         self._init_network()
+
+        if self.args.model_dir is not None:
+            self._init_from_file()
 
     # pylint: disable=attribute-defined-outside-init
     def _init_network(self):
@@ -35,8 +39,8 @@ class SDRL_Agent(Value_Based_Agent):
 
     def _init_from_file(self):
         # load the optimizer and model parameters
-        if self.args.load_from is not None:
-            self.load_params(self.args.load_from)
+        if self.args.model_dir is not None:
+            self.load_params(self.args.model_dir)
 
     def train(self):
         self.subgoal_avg_score_window = [deque(maxlen=self.args.avg_score_window) for _ in range(self.n_subgoal)]
@@ -62,6 +66,8 @@ class SDRL_Agent(Value_Based_Agent):
                 subgoal_done = False
                 # get the sub-policy
                 subgoal_agent = self.subgoal_policies[sub_goal]
+                skip_training = self.skip_subgoal_training[sub_goal]
+                subgoal_agent.testing = True if skip_training else False
                 subgoal_agent.episode_step = 0
                 t_begin = time.time()
 
@@ -79,8 +85,9 @@ class SDRL_Agent(Value_Based_Agent):
                     subgoal_score += intrinsic_reward
 
                     # save the new transition
-                    transition = (state, action, intrinsic_reward, next_state, subgoal_done, info)
-                    subgoal_agent.add_transition_to_memory(transition)
+                    if not skip_training:
+                        transition = (state, action, intrinsic_reward, next_state, subgoal_done, info)
+                        subgoal_agent.add_transition_to_memory(transition)
 
                     # update subgoal agent info
                     subgoal_agent.episode_step += 1
@@ -89,12 +96,12 @@ class SDRL_Agent(Value_Based_Agent):
                     self.episode_step += 1
                     self.total_step += 1
 
-                    if subgoal_agent.total_step % self.args.save_period == 0:
+                    if not skip_training and subgoal_agent.total_step % self.args.save_period == 0:
                         subgoal_agent.save_params(n_step=subgoal_agent.total_step,
                                                   prefix='sub_policy_{0}'.format(sub_goal))
 
                     # train the agent
-                    if len(subgoal_agent.memory) >= subgoal_agent.hyper_params.update_starts_from:
+                    if not skip_training and len(subgoal_agent.memory) >= subgoal_agent.hyper_params.update_starts_from:
                         if subgoal_agent.total_step % subgoal_agent.hyper_params.train_freq == 0:
                             for _ in range(subgoal_agent.hyper_params.policy_multiple_update):
                                 loss = subgoal_agent.update_model()
@@ -121,10 +128,12 @@ class SDRL_Agent(Value_Based_Agent):
     def load_params(self, path):
         """Load model and optimizer parameters."""
         # fetch all sub-policies file
-        fnames = glob.glob(os.path.join(path, 'policy_subgoal*'))
+        fnames = glob.glob(os.path.join(path, 'sub_policy_*'))
+        print('[INFO] Found sub-goal files: ', fnames)
         for i in range(self.n_subgoal):
             for fname in fnames:
-                if 'policy_subgoal_{0}'.format(i) in fname:
+                if 'sub_policy_{0}'.format(i) in fname:
+                    self.skip_subgoal_training[i] = True
                     self.subgoal_policies[i].load_params(fname)
                     break
 
@@ -178,7 +187,64 @@ class SDRL_Agent(Value_Based_Agent):
         pass
 
     def test(self):
-        pass
+        from utils.info_displayer import InfoDisplayer
+        info_displayer = InfoDisplayer(screen_height=150 * 6, screen_width=250, frame_time=0.1)
+
+        while self.total_step < self.args.max_step and self.i_episode < self.args.max_episode:
+            if DEBUG_INFO:
+                print('[INFO] Starting episode ', self.i_episode)
+            self.env.restart()
+
+            self.episode_step = 0
+            score = 0
+
+            while not self.env.is_terminal() and self.episode_step < self.args.max_traj_len:
+                sub_goal = self.env.get_current_subgoal()
+                if DEBUG_INFO:
+                    print('[INFO] Episode: {0}, episode step: {1}, total step: {4}, current subgoal {2}: {3}.'.format(
+                        self.i_episode, self.episode_step, sub_goal,
+                        self.env.goal_meaning[sub_goal], self.total_step))
+
+                # recording training-related information
+                subgoal_score = 0
+                subgoal_done = False
+                # get the sub-policy
+                subgoal_agent = self.subgoal_policies[sub_goal]
+                subgoal_agent.episode_step = 0
+                subgoal_agent.testing = True
+
+                while not self.env.is_terminal() and not subgoal_done and \
+                        subgoal_agent.episode_step < self.hyper_params.max_goal_step:
+                    info_displayer.display_img_rgb(rgb_img=self.env.get_last_rgb_obs())
+                    info_displayer.refresh()
+
+                    # interact with the environment
+                    state = self.env.get_stacked_state()
+                    action = subgoal_agent.select_action(state)
+                    next_state, external_reward, _, info = self.env.act(action)
+                    score += external_reward
+
+                    intrinsic_reward, subgoal_done = self.env.get_intrinsic_reward(sub_goal)
+                    if subgoal_agent.episode_step + 1 >= self.hyper_params.max_goal_step and intrinsic_reward == 0:
+                        intrinsic_reward = -1
+                    subgoal_score += intrinsic_reward
+
+                    # update subgoal agent info
+                    subgoal_agent.episode_step += 1
+                    subgoal_agent.total_step += 1
+                    # update SDRL agent info
+                    self.episode_step += 1
+                    self.total_step += 1
+
+                self.i_episode += 1
+                # update subgoal agent info
+                subgoal_agent.i_episode += 1
+                print(
+                    '[INFO] Subgoal {0} done, subgoal step: {1}, sub-policy total step: {4}, subgoal score: {2}, total score: {3}'.format(
+                        sub_goal,
+                        subgoal_agent.episode_step,
+                        subgoal_score,
+                        score, subgoal_agent.total_step))
 
     # pylint: disable=no-self-use, unnecessary-pass
     def pretrain(self):
