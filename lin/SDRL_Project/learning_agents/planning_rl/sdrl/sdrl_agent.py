@@ -49,11 +49,11 @@ class SDRL_Agent(Value_Based_Agent):
             if DEBUG_INFO:
                 print('[INFO] Starting episode ', self.i_episode)
             self.env.restart()
-            subgoal_done = True
+            complete_subgoal = True
             self.episode_step = 0
             score = 0
 
-            while subgoal_done and not self.env.is_terminal() and self.episode_step < self.args.max_traj_len:
+            while complete_subgoal and not self.env.is_terminal() and self.episode_step < self.args.max_traj_len:
                 sub_goal = self.env.get_current_subgoal()
                 if DEBUG_INFO:
                     print('[INFO] Episode: {0}, episode step: {1}, total step: {4}, current subgoal {2}: {3}.'.format(
@@ -63,6 +63,7 @@ class SDRL_Agent(Value_Based_Agent):
                 # recording training-related information
                 subgoal_losses = list()
                 subgoal_score = 0
+                complete_subgoal = False
                 subgoal_done = False
                 # get the sub-policy
                 subgoal_agent = self.subgoal_policies[sub_goal]
@@ -82,6 +83,7 @@ class SDRL_Agent(Value_Based_Agent):
                     intrinsic_reward, subgoal_done = self.env.get_intrinsic_reward(sub_goal)
                     if subgoal_agent.episode_step + 1 >= self.hyper_params.max_goal_step and intrinsic_reward == 0:
                         intrinsic_reward = -1
+                        subgoal_done = True
                     subgoal_score += intrinsic_reward
 
                     # save the new transition
@@ -108,7 +110,7 @@ class SDRL_Agent(Value_Based_Agent):
                                 subgoal_losses.append(loss)  # for logging
 
                 if subgoal_score > 0:
-                    subgoal_done = True
+                    complete_subgoal = True
                 self.i_episode += 1
                 # update subgoal agent info
                 subgoal_agent.i_episode += 1
