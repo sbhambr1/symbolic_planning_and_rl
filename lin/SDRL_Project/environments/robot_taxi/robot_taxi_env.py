@@ -219,7 +219,11 @@ class Robot_Taxi_Env(gym.Env):
             return 1
 
     def subgoal_remapping(self):
-        if self.get_subgoal() == 0:
+        """
+        to be used for printing the subgoal during execution
+        """
+        subgoal = self.get_subgoal()
+        if subgoal == 0:
             return 'navigate to pickup passenger'
-        if self.get_subgoal() == 1:
+        if subgoal == 1:
             return 'navigate to drop-off passenger'
