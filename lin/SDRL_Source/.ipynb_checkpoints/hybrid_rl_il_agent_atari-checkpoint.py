@@ -61,7 +61,7 @@ class Agent:
     def setControllerEpsilon(self, epsilonArr):
         self.controllerEpsilon = epsilonArr
 
-    def criticize(self, reachGoal, action, die, reward_from_distance, useSparseReward):
+    def criticize(self, reachGoal, action, die, distanceReward, useSparseReward):
         reward = 0.0
         if reachGoal:
             reward += 1.0
@@ -69,7 +69,7 @@ class Agent:
         if die:
             reward -= 1.0
         if not useSparseReward:
-            reward += reward_from_distance
+            reward += distanceReward
         reward = np.minimum(reward, maxReward)
         reward = np.maximum(reward, minReward)
         return reward

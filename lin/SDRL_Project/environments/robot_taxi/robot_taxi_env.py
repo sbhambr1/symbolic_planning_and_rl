@@ -209,4 +209,17 @@ class Robot_Taxi_Env(gym.Env):
         else:
             return self._get_obs()
 
+    def get_subgoal(self):
+        """
+        sub-goals: [pickup, drop]
+        """
+        if self.picked_passenger is None:
+            return 0
+        if self.picked_passenger is not None and self.picked_passenger == self.RIGHT_PASSENGER_ID and self.agent_loc != self.dest_loc:
+            return 1
 
+    def subgoal_remapping(self):
+        if self.get_subgoal() == 0:
+            return 'pickup passenger'
+        if self.get_subgoal() == 1:
+            return 'drop-off passenger'

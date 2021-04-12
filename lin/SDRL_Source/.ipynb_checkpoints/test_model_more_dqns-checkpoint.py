@@ -37,14 +37,14 @@ def str2bool(v):
 
 
 def accomplish_subgoal(goal, RL_agent, env, episodeSteps, goalExplain, actionExplain, actionMap):
-    while not env.is_game_end() and not env.agent_reached_goal(goal) and episodeSteps <= maxStepsPerEpisode:
+    while not env.isTerminal() and not env.goalReached(goal) and episodeSteps <= maxStepsPerEpisode:
         if DISPLAY:
             env.gym_env.render()
             time.sleep(FRAME_SLEEP_TIME)
         """
         @Lin: the state here is image observation
         """
-        state = env.stack_states_together()
+        state = env.getStackedState()
         """
         @Lin: let the RL agent to select low-level action
         """
@@ -54,7 +54,7 @@ def accomplish_subgoal(goal, RL_agent, env, episodeSteps, goalExplain, actionExp
 
         externalRewards = env.act(actionMap[action])
         episodeSteps += 1
-        nextState = env.stack_states_together()
+        nextState = env.getStackedState()
 
     return episodeSteps
 
@@ -119,17 +119,17 @@ def main():
         print("\n\n### EPISODE "  + str(episodeCount) + "###")
         # Restart the game
         """
-        @Lin: they wrap the original Gym environment, the start_new_game() function is equivalent to the reset() function
+        @Lin: they wrap the original Gym environment, the restart() function is equivalent to the reset() function
         """
-        env.start_new_game()
+        env.restart()
         episodeSteps = 0
 
         """
         @Lin: The interaction loop: run until current trajectory contains more than maxStepsPerEpisode steps 
             or the agent finishes the task
         """
-        while not env.is_game_end() and episodeSteps <= maxStepsPerEpisode:
-            stateLastGoal = env.stack_states_together()
+        while not env.isTerminal() and episodeSteps <= maxStepsPerEpisode:
+            stateLastGoal = env.getStackedState()
             """
             @Lin: in normal cases, the subgoal here should be chosen by the planner (e.g. subgoal = planner(stateLastGoal))
                 , but here they simply use hard-coded subgoals
@@ -141,7 +141,7 @@ def main():
                 # Update subgoal
                 if episodeSteps > maxStepsPerEpisode:
                     break
-                elif env.agent_reached_goal(subgoal):
+                elif env.goalReached(subgoal):
                     print('subgoal reached: ' + goalExplain[subgoal])
                 else:
                     break

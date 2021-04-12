@@ -301,7 +301,7 @@ def main():
     saveExternalRewardScreen = True
 
     env = ALEEnvironment(args.game, args)
-    # print "agent loc:",env.agent_location(env.getScreenRGB())
+    # print "agent loc:",env.getAgentLoc(env.getScreenRGB())
 
     # Initilize network and agent
 
@@ -389,7 +389,7 @@ def main():
     while episodeCount < EPISODE_LIMIT and stepCount < STEPS_LIMIT:
         print("\n\n### EPISODE " + str(episodeCount) + "###")
         # Restart the game
-        env.start_new_game()
+        env.restart()
         episodeSteps = 0
 
         replanned = False
@@ -401,7 +401,8 @@ def main():
         allsubgoallearned = True
 
         if explore:
-            print("generate new plan...")
+            print
+            "generate new plan..."
             oldplan = plantrace
             plantrace = generateplan()
             planabandoned = False
@@ -421,7 +422,7 @@ def main():
 
         # dispatch each subgoal to DQN
         # goal_index denotes the current index of action/symbolic transition to dispatch
-        while not env.is_game_end() and episodeSteps <= maxStepsPerEpisode and goal_index < len(
+        while not env.isTerminal() and episodeSteps <= maxStepsPerEpisode and goal_index < len(
                 plantrace) - 1 and not goal_not_found:
 
             goal = selectSubGoal(plantrace, goal_index)
@@ -447,24 +448,24 @@ def main():
                 planabandoned = False
 
                 # train DQN for the subgoal
-                while not env.is_game_end() and not env.agent_reached_goal(goal) and episodeSteps <= maxStepsPerEpisode:
+                while not env.isTerminal() and not env.goalReached(goal) and episodeSteps <= maxStepsPerEpisode:
 
-                    state = env.stack_states_together()
+                    state = env.getStackedState()
                     # action = agent_list[goal].selectMove(state, goal)
                     action = agent_list[goal].selectMove(state)
                     externalRewards = env.act(actionMap[action])
 
                     # stepCount += 1
                     episodeSteps += 1
-                    nextState = env.stack_states_together()
+                    nextState = env.getStackedState()
 
                     # only assign intrinsic reward if the goal is reached and it has not been reached previously
-                    intrinsicRewards = agent_list[goal].criticize(env.agent_reached_goal(goal), actionMap[action],
-                                                                  env.is_game_end(), 0, args.use_sparse_reward)
+                    intrinsicRewards = agent_list[goal].criticize(env.goalReached(goal), actionMap[action],
+                                                                  env.isTerminal(), 0, args.use_sparse_reward)
                     # Store transition and update network params, only when it is not learnted yet
                     if not option_learned[goal]:
                         if agent_list[goal].randomPlay:
-                            exp = ActorExperience(state, goal, action, intrinsicRewards, nextState, env.is_game_end())
+                            exp = ActorExperience(state, goal, action, intrinsicRewards, nextState, env.isTerminal())
                             random_experience[goal].append(exp)
                             if len(random_experience[goal]) > 20000:
                                 random_experience[goal].popleft()
@@ -485,7 +486,7 @@ def main():
                             else:
                                 if not option_learned[goal]:
                                     exp = ActorExperience(state, goal, action, intrinsicRewards, nextState,
-                                                          env.is_game_end())
+                                                          env.isTerminal())
                                     agent_list[goal].store(exp)
                                     option_t[goal] += 1
                                     option_training_counter[goal] += 1
@@ -526,7 +527,7 @@ def main():
                 updateconstraint(state_ind, action_ind)
                 planabandoned = True
                 break
-            elif (episodeSteps > maxStepsPerEpisode) or env.is_game_end():
+            elif (episodeSteps > maxStepsPerEpisode) or env.isTerminal():
                 # failed plan, receive intrinsic reward of -100
                 print('Goal not achieved.')
                 subgoal_success_tracker[goal].append(0)
@@ -555,14 +556,14 @@ def main():
                 print('R(', state_ind, action_ind, ')=', R_table[state_ind, action_ind])
                 print('ro(', state_ind, action_ind, ')=', ro_table[state_ind, action_ind])
                 break
-            elif env.agent_reached_goal(goal):
+            elif env.goalReached(goal):
                 subgoal_success_tracker[goal].append(1)
                 goalstate = plantrace[goal_index + 1][2]
                 previousstate = plantrace[goal_index][2]
                 print('previous state', previousstate)
                 print('goal reached', goalstate)
                 print('Success times:', subgoal_success_tracker[goal].count(1))
-                #    print 'current state:', env.stack_states_together()
+                #    print 'current state:', env.getStackedState()
                 if obtainedKey(previousstate, goalstate):
                     print("Obtained key! Get 100 reward!")
                     reward = 100
