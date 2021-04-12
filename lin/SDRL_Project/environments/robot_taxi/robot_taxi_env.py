@@ -211,7 +211,7 @@ class Robot_Taxi_Env(gym.Env):
 
     def get_subgoal(self):
         """
-        sub-goals: [pickup, drop]
+        sub-goals: [navigate for pickup, navigate for drop-off]
         """
         if self.picked_passenger is None:
             return 0
@@ -220,6 +220,6 @@ class Robot_Taxi_Env(gym.Env):
 
     def subgoal_remapping(self):
         if self.get_subgoal() == 0:
-            return 'pickup passenger'
+            return 'navigate to pickup passenger'
         if self.get_subgoal() == 1:
-            return 'drop-off passenger'
+            return 'navigate to drop-off passenger'
